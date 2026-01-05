@@ -6,13 +6,16 @@ const api = axios.create({
 
 // Attach Unique User ID to every request for multi-user isolation
 api.interceptors.request.use((config) => {
-    let userId = localStorage.getItem('swify_user_id');
-    if (!userId) {
-        // Generate a simple unique ID if it doesn't exist
-        userId = 'user_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
-        localStorage.setItem('swify_user_id', userId);
+    try {
+        let userId = localStorage.getItem('swify_user_id');
+        if (!userId) {
+            userId = 'user_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+            localStorage.setItem('swify_user_id', userId);
+        }
+        config.headers['X-User-ID'] = userId;
+    } catch (e) {
+        config.headers['X-User-ID'] = 'anonymous';
     }
-    config.headers['X-User-ID'] = userId;
     return config;
 }, (error) => {
     return Promise.reject(error);
