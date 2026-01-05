@@ -1,0 +1,53 @@
+{
+    "name": "Swify | Premium Note App",
+    "short_name": "Swify",
+    "description": "Premium Note-Taking and Task Management App with AI Intelligence.",
+    "categories": [
+        "productivity",
+        "utilities"
+    ],
+    "icons": [
+        {
+            "src": "/icons/logo.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icons/logo.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "start_url": "/",
+    "display": "standalone",
+    "theme_color": "#6366f1",
+    "background_color": "#0f172a",
+    "orientation": "portrait",
+    "shortcuts": [
+        {
+            "name": "Add New Note",
+            "url": "/?action=add",
+            "description": "Quickly create a new note",
+            "icons": [
+                {
+                    "src": "/icons/logo.png",
+                    "sizes": "192x192"
+                }
+            ]
+        },
+        {
+            "name": "View TO-DO List",
+            "url": "/?category=TO-DO",
+            "description": "Check your daily tasks",
+            "icons": [
+                {
+                    "src": "/icons/logo.png",
+                    "sizes": "192x192"
+                }
+            ]
+        }
+    ],
+    "prefer_related_applications": false
+}

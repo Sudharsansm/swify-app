@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notefy Me</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <!-- PWA Settings -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#0f0c29">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192x192.png') }}">
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="brand">
+                <h1>Notefy</h1>
+            </div>
+
+            <nav class="calendar-nav">
+                <a href="{{ url_for('index') }}" class="nav-item {% if not current_filter %}active{% endif %}">
+                    <span>All Notes</span>
+                    <span class="badge">{{ counts.all }}</span>
+                </a>
+                <a href="{{ url_for('index', category='Personal') }}"
+                    class="nav-item {% if current_filter == 'Personal' %}active{% endif %}">
+                    <span>Personal</span>
+                    <span class="badge">{{ counts.Personal }}</span>
+                </a>
+                <a href="{{ url_for('index', category='Work') }}"
+                    class="nav-item {% if current_filter == 'Work' %}active{% endif %}">
+                    <span>Work</span>
+                    <span class="badge">{{ counts.Work }}</span>
+                </a>
+                <a href="{{ url_for('index', category='TO-DO') }}"
+                    class="nav-item {% if current_filter == 'TO-DO' %}active{% endif %}">
+                    <span>TO-DO</span>
+                    <span class="badge">{{ counts.todo }}</span>
+                </a>
+            </nav>
+
+            <div class="world-clock">
+                <div class="clock-time" id="clock">00:00</div>
+                <div class="clock-date" id="date">Mon, Jan 1</div>
+            </div>
+
+            <div class="focus-timer">
+                <h3>Focus Timer</h3>
+                <div class="clock-time" id="focus-display" style="font-size: 2rem;">25:00</div>
+                <button class="focus-btn" onclick="toggleFocusTimer()">Start Focus</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0;">
+                <div>
+                    <h2 style="font-size: 1.5rem;">{{ current_filter if current_filter else 'My Notes' }}</h2>
+                    <p>Capture ideas, lists, and more.</p>
+                </div>
+                <!-- View Toggle -->
+                <button class="view-toggle" onclick="toggleGridView()">
+                    <svg class="list-icon" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                    <svg class="grid-icon" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                        style="display: none;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                    <span id="viewLabel">View</span>
+                </button>
+            </header>
+
+            <!-- Search Bar -->
+            <form action="/" method="GET" class="search-bar">
+                <input type="text" name="q" class="search-input" placeholder="Search notes..."
+                    value="{{ request.args.get('q', '') }}">
+                <svg class="search-icon" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </form>
+
+            <!-- Add Note Form -->
+            <form action="/add" method="POST" class="input-group" enctype="multipart/form-data" id="addForm">
+                <input type="hidden" name="color" id="selectedColor" value="default">
+
+                <div class="input-wrapper" style="flex-direction: column; width: 100%;">
+                    <input type="text" name="title" id="noteTitle" placeholder="Title" autocomplete="off"
+                        style="font-weight: 600; font-size: 1.1rem; display: none;">
+                    <textarea name="description" id="noteDesc" placeholder="Take a note..." required autocomplete="off"
+                        autofocus onclick="expandForm()"
+                        style="width: 100%; background: transparent; border: none; color: var(--text-primary); font-size: 1rem; outline: none; resize: none; min-height: 24px; font-family: inherit;"></textarea>
+
+                    <!-- Expanded Fields -->
+                    <div id="expandedFields"
+                        style="display: none; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem; width: 100%;">
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <select name="category"
+                                style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: var(--text-secondary); padding: 0.5rem; border-radius: 0.5rem;">
+                                <option value="Personal">Personal</option>
+                                <option value="Work">Work</option>
+                                <option value="TO-DO">TO-DO</option>
+                            </select>
+                            <select name="priority"
+                                style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: var(--text-secondary); padding: 0.5rem; border-radius: 0.5rem;">
+                                <option value="Medium">Medium</option>
+                                <option value="High">High</option>
+                                <option value="Low">Low</option>
+                            </select>
+                            <input type="number" name="focus_duration" placeholder="Focus (min)" value="25" min="1"
+                                max="180"
+                                style="width: 80px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: var(--text-secondary); padding: 0.5rem; border-radius: 0.5rem;">
+                            <input type="datetime-local" name="due_date" title="Set Due Date">
+                            <input type="text" name="tags" placeholder="#Tags"
+                                style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: var(--text-secondary); padding: 0.5rem; border-radius: 0.5rem; flex: 1; min-width: 100px;">
+                        </div>
+
+                        <!-- Toolbar -->
+                        <div class="toolbar-actions" style="justify-content: space-between;">
+                            <div style="display: flex; gap: 0.5rem; position: relative;">
+                                <!-- Color Picker -->
+                                <button type="button" class="icon-btn" onclick="toggleColorPicker(this)"
+                                    title="Change Color">
+                                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                                    </svg>
+                                </button>
+                                <div class="color-picker-popover">
+                                    <div class="color-option" style="background: #1e1b4b; border: 1px solid #aaa;"
+                                        onclick="selectColor('default')"></div>
+                                    <div class="color-option" style="background: #ef4444;" onclick="selectColor('red')">
+                                    </div>
+                                    <div class="color-option" style="background: #f97316;"
+                                        onclick="selectColor('orange')"></div>
+                                    <div class="color-option" style="background: #eab308;"
+                                        onclick="selectColor('yellow')"></div>
+                                    <div class="color-option" style="background: #22c55e;"
+                                        onclick="selectColor('green')"></div>
+                                    <div class="color-option" style="background: #14b8a6;"
+                                        onclick="selectColor('teal')"></div>
+                                    <div class="color-option" style="background: #3b82f6;"
+                                        onclick="selectColor('blue')"></div>
+                                    <div class="color-option" style="background: #64748b;"
+                                        onclick="selectColor('gray')"></div>
+                                </div>
+
+                                <!-- Image Upload -->
+                                <button type="button" class="icon-btn"
+                                    onclick="document.getElementById('fileInput').click()" title="Add Image">
+                                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </button>
+                                <input type="file" name="attachment" id="fileInput" accept="image/*"
+                                    style="display: none;" onchange="updateFileName(this)">
+
+                                <!-- Helper text for file -->
+                                <span id="fileName"
+                                    style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px;"></span>
+
+                                <!-- Voice -->
+                                <button type="button" class="icon-btn" onclick="startDictation()" title="Voice Note">
+                                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <button type="submit" class="add-btn">Add Note</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <ul class="task-list" id="taskList">
+                {% if tasks %}
+                {% for task in tasks %}
+                <li class="task-item color-{{ task.color }} {% if task.completed %}completed{% endif %}"
+                    data-id="{{ task.id }}" data-title="{{ task.title }}"
+                    data-description="{{ task.description or '' }}" data-category="{{ task.category }}"
+                    data-priority="{{ task.priority }}" data-focus="{{ task.focus_duration }}"
+                    data-due="{{ task.due_date.strftime('%Y-%m-%dT%H:%M') if task.due_date else '' }}"
+                    data-color="{{ task.color }}" data-tags="{{ task.tags or '' }}"
+                    data-attachment="{{ url_for('static', filename=task.attachment) if task.attachment else '' }}"
+                    data-subtasks='[{% for sub in task.subtasks %}{"id": {{sub.id}}, "text": {{sub.text | tojson}} }{% if not loop.last %}, {% endif %}{% endfor %}]'
+                    onclick="viewCard(this)"
+                    style="animation-delay: {{ loop.index0 * 0.1 }}s; flex-direction: column; align-items: stretch; position: relative; cursor: pointer;">
+
+                    {% if task.is_pinned %}
+                    <div class="pinned-icon" title="Pinned" onclick="event.stopPropagation()">
+                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M16 12V4H17V2H7V4H8V12L5 15V17H11V22H13V17H19V15L16 12Z" />
+                        </svg>
+                    </div>
+                    {% endif %}
+
+                    {% if task.attachment %}
+                    <div class="task-attachment">
+                        <img src="{{ url_for('static', filename=task.attachment) }}" alt="Attachment"
+                            onclick="window.open(this.src, '_blank'); event.stopPropagation()">
+                    </div>
+                    {% endif %}
+
+                    <div style="display: flex; align-items: flex-start; justify-content: space-between; width: 100%;">
+                        <div class="task-content">
+                            <div class="checkbox-wrapper">
+                                <input type="checkbox" class="task-checkbox" {% if task.completed %}checked{% endif %}
+                                    onclick="event.stopPropagation(); window.location.href='{{ url_for('complete', id=task.id) }}'">
+                            </div>
+                            <div class="task-meta" style="width: 100%;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                    <span class="task-text" style="font-weight: 600;">{{ task.title }}</span>
+                                </div>
+
+                                {% if task.description %}
+                                <span class="task-description">{{
+                                    task.description }}</span>
+                                {% endif %}
+
+                                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+                                    <span class="priority-badge priority-{{ task.priority|lower }}">{{ task.priority
+                                        }}</span>
+                                    <span class="badge" style="font-size: 0.7rem;">{{ task.category }}</span>
+                                    {% if task.due_date %}
+                                    <div class="timer-badge" title="Due Date">
+                                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24"
+                                            stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span class="timer-text">{{ task.due_date }}</span>
+                                    </div>
+                                    {% endif %}
+                                    {% if task.tags %}
+                                    <span class="badge"
+                                        style="font-size: 0.7rem; background: rgba(255, 255, 255, 0.1); color: var(--text-secondary);">{{
+                                        task.tags }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div style="display: flex; gap: 0.2rem; align-items: center;">
+                            <a href="{{ url_for('toggle_pin', id=task.id) }}" class="btn-icon"
+                                title="{{ 'Unpin' if task.is_pinned else 'Pin' }}" onclick="event.stopPropagation()">
+                                <svg width="18" height="18" fill="{{ 'currentColor' if task.is_pinned else 'none' }}"
+                                    viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                                </svg>
+                            </a>
+                            <button class="btn-icon"
+                                onclick="event.stopPropagation(); openEditModal({{ task.id }}, '{{ task.title }}', '{{ task.description or '' }}', '{{ task.category }}', '{{ task.priority }}', '{{ task.focus_duration }}', '{{ task.due_date.strftime('%Y-%m-%dT%H:%M') if task.due_date else '' }}', '{{ task.color }}', '{{ task.tags or '' }}', this.closest('.task-item').dataset.subtasks)">
+                                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                            </button>
+                            <a href="{{ url_for('delete', id=task.id) }}" class="delete-btn" title="Delete Task"
+                                onclick="event.stopPropagation()">
+                                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </a>
+                        </div>
+                    </div>
+
+                    <button class="btn-small btn-focus-toggle" onclick="toggleFocusPanel(this); event.stopPropagation()"
+                        style="margin-top: 0.5rem; width: fit-content;">
+                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Focus Mode
+                    </button>
+
+                    <!-- Subtasks -->
+                    <div class="subtask-list">
+                        {% for sub in task.subtasks %}
+                        <div class="subtask-item">
+                            <input type="checkbox" class="subtask-checkbox" {% if sub.completed %}checked{% endif %}
+                                onclick="window.location.href='/toggle_subtask/{{ sub.id }}'; event.stopPropagation()">
+                            <span style="text-decoration: {{ 'line-through' if sub.completed else 'none' }}">{{ sub.text
+                                }}</span>
+                        </div>
+                        {% endfor %}
+                        <form action="/add_subtask/{{ task.id }}" method="POST" class="subtask-form"
+                            onclick="event.stopPropagation()">
+                            <input type="text" name="subtask_text" class="subtask-input" placeholder="+ List item">
+                        </form>
+                    </div>
+
+                    <!-- Focus Panel (Hidden by default) -->
+                    <div class="focus-row">
+                        <input type="number" class="duration-input" value="{{ task.focus_duration }}" min="1"
+                            onclick="event.stopPropagation()">
+                        <span class="timer-display" data-time="{{ task.focus_duration * 60 }}">00:00</span>
+                        <div class="focus-controls" onclick="event.stopPropagation()">
+                            <button class="btn-small btn-play" onclick="startTaskTimer(this)">
+                                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z" />
+                                </svg>
+                            </button>
+                            <button class="btn-small btn-pause" onclick="pauseTaskTimer(this)">
+                                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                                </svg>
+                            </button>
+                            <button class="btn-small btn-stop" onclick="stopTaskTimer(this)">
+                                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M6 6h12v12H6z" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </li>
+                {% endfor %}
+                {% else %}
+                <div class="empty-state">
+                    <p>No notes found. Keep helps you stay on top of things!</p>
+                </div>
+                {% endif %}
+            </ul>
+        </main>
+
+        <!-- Edit Modal -->
+        <div id="editModal" class="edit-form-overlay" onclick="closeEditModal(event)">
+            <form id="editForm" method="POST" class="edit-modal" onclick="event.stopPropagation()"
+                enctype="multipart/form-data">
+                <h3>Edit Note</h3>
+                <input type="text" id="editTitle" name="title" class="search-input" required placeholder="Title">
+                <textarea id="editDescription" name="description" class="search-input" placeholder="Note"
+                    style="min-height: 100px; resize: vertical;"></textarea>
+
+                <input type="hidden" id="editColor" name="color">
+
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <select id="editCategory" name="category" class="search-input">
+                        <option value="Personal">Personal</option>
+                        <option value="Work">Work</option>
+                        <option value="TO-DO">TO-DO</option>
+                    </select>
+                    <select id="editPriority" name="priority" class="search-input">
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                        <option value="Low">Low</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <input type="number" id="editFocus" name="focus_duration" class="search-input"
+                        placeholder="Focus (min)">
+                    <input type="datetime-local" id="editDue" name="due_date" class="search-input">
+                </div>
+                <input type="text" id="editTags" name="tags" class="search-input" placeholder="#Tags"
+                    style="margin-top: 0.5rem;">
+
+                <!-- Subtasks Edit Section -->
+                <div style="margin-top: 1rem;">
+                    <label style="font-size: 0.85rem; color: var(--text-secondary);">Subtasks</label>
+                    <div id="editSubtasks"
+                        style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;"></div>
+                    <input type="hidden" name="deleted_subtasks" id="deletedSubtasks">
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                    <button type="button" class="icon-btn" onclick="document.getElementById('editFileInput').click()"
+                        title="Add Image">
+                        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                    </button>
+                    <input type="file" name="attachment" id="editFileInput" accept="image/*" style="display: none;">
+                </div>
+
+                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button type="button" class="btn-small btn-stop"
+                        onclick="document.getElementById('editModal').classList.remove('active')">Cancel</button>
+                    <button type="submit" class="add-btn">Save</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- View Modal (Read Only) -->
+        <div id="viewModal" class="edit-form-overlay" onclick="closeViewModal(event)">
+            <div id="viewModalContent" class="edit-modal" onclick="event.stopPropagation()" style="position: relative;">
+                <button onclick="document.getElementById('viewModal').classList.remove('active')" class="icon-btn"
+                    style="position: absolute; top: 1rem; right: 1rem;">
+                    <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+
+                <img id="viewAttachment" src="" alt="Attachment"
+                    style="width: 100%; border-radius: 0.5rem; margin-bottom: 1rem; display: none; object-fit: cover; max-height: 300px;">
+
+                <h3 id="viewTitle" style="margin-bottom: 0.5rem; font-size: 1.5rem;"></h3>
+
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                    <span id="viewCategory" class="badge"></span>
+                    <span id="viewPriority" class="priority-badge"></span>
+                    <span id="viewDate" class="timer-badge" style="display: none;"></span>
+                </div>
+
+                <div id="viewDescription"
+                    style="white-space: pre-wrap; color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.6;">
+                </div>
+
+                <div id="viewTags" class="tags-list" style="margin-bottom: 1rem;"></div>
+
+                <div id="viewSubtasks" class="subtask-list" style="margin-bottom: 1rem;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alarm Modal -->
+    <div id="alarmModal" class="edit-form-overlay" style="z-index: 2000; background: rgba(50, 0, 0, 0.9);">
+        <div class="edit-modal"
+            style="align-items: center; text-align: center; border-color: #ef4444; max-width: 400px;">
+            <div style="font-size: 4rem; margin-bottom: 1rem;">&#9200;</div>
+            <h2 id="alarmMessage" style="color: #fff; margin-bottom: 2rem;">Time's Up!</h2>
+            <button onclick="stopAlarm()" class="add-btn"
+                style="background: #ef4444; width: 100%; padding: 1rem; font-size: 1.2rem;">
+                STOP ALARM
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- Helper to expand input ---
+        function expandForm() {
+            document.getElementById('noteTitle').style.display = 'block';
+            document.getElementById('expandedFields').style.display = 'flex';
+            // Adjust textarea height if needed, but currently fixed min-height
+        }
+        // Close expanded if clicked outside? (Simplified for now - user can just leave it)
+
+        function updateFileName(input) {
+            if (input.files && input.files[0]) {
+                document.getElementById('fileName').textContent = input.files[0].name;
+            }
+        }
+
+        // --- Alarm Modal & Logic ---
+        function startAlarm(message) {
+            const modal = document.getElementById('alarmModal');
+            const msg = document.getElementById('alarmMessage');
+            msg.textContent = message || "Time's Up!";
+
+            modal.classList.add('active');
+
+            // Play Loop
+            notificationSound.currentTime = 0;
+            notificationSound.loop = true;
+            notificationSound.play().catch(e => console.log(e));
+        }
+
+        function stopAlarm() {
+            const modal = document.getElementById('alarmModal');
+            modal.classList.remove('active');
+
+            notificationSound.pause();
+            notificationSound.currentTime = 0;
+            notificationSound.loop = false;
+        }
+
+        // Clock Script
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const dateString = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+
+            document.getElementById('clock').textContent = timeString;
+            document.getElementById('date').textContent = dateString;
+        }
+
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Audio Notification
+        const notificationSound = new Audio("{{ url_for('static', filename='sounds/notification.wav') }}");
+
+        // Sidebar Focus Timer Logic
+        let globalFocusInterval;
+        let isGlobalFocusRunning = false;
+
+        function toggleFocusTimer() {
+            const display = document.getElementById('focus-display');
+            const btn = document.querySelector('.focus-btn');
+
+            if (isGlobalFocusRunning) {
+                clearInterval(globalFocusInterval);
+                isGlobalFocusRunning = false;
+                btn.textContent = "Start Focus";
+            } else {
+                isGlobalFocusRunning = true;
+                btn.textContent = "Stop Focus";
+
+                let [m, s] = display.textContent.split(':').map(Number);
+                let totalSeconds = m * 60 + s;
+
+                if (totalSeconds <= 0) totalSeconds = 25 * 60;
+
+                globalFocusInterval = setInterval(() => {
+                    if (totalSeconds <= 0) {
+                        clearInterval(globalFocusInterval);
+                        isGlobalFocusRunning = false;
+                        btn.textContent = "Start Focus";
+                        isGlobalFocusRunning = false;
+                        btn.textContent = "Start Focus";
+                        startAlarm("Focus Session Complete!");
+                        return;
+                    }
+                    totalSeconds--;
+                    display.textContent = formatTime(totalSeconds);
+                }, 1000);
+            }
+        }
+
+        // Edit Modal Logic
+        function openEditModal(id, title, desc, cat, prio, focus, due, color, tags, subtasksJson) {
+            const modal = document.getElementById('editModal');
+            const form = document.getElementById('editForm');
+            form.action = `/edit/${id}`;
+            document.getElementById('editTitle').value = title;
+            document.getElementById('editDescription').value = desc;
+            document.getElementById('editCategory').value = cat;
+            document.getElementById('editPriority').value = prio;
+            document.getElementById('editFocus').value = focus;
+            document.getElementById('editDue').value = due;
+            document.getElementById('editColor').value = color || 'default';
+            document.getElementById('editTags').value = tags || '';
+
+            // Populate Subtasks
+            const subtaskContainer = document.getElementById('editSubtasks');
+            const deletedInput = document.getElementById('deletedSubtasks');
+            subtaskContainer.innerHTML = '';
+            deletedInput.value = '';
+
+            let subtasks = [];
+            try {
+                // If passing directly from JS call, it might already be object, or string
+                subtasks = typeof subtasksJson === 'string' ? JSON.parse(subtasksJson) : subtasksJson;
+            } catch (e) { subtasks = []; }
+
+            if (subtasks && subtasks.length > 0) {
+                subtasks.forEach(sub => {
+                    const row = document.createElement('div');
+                    row.style.display = 'flex';
+                    row.style.gap = '0.5rem';
+                    row.style.alignItems = 'center';
+
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.name = `subtask_content_${sub.id}`;
+                    input.value = sub.text;
+                    input.className = 'search-input';
+                    input.style.flex = '1';
+
+                    const delBtn = document.createElement('button');
+                    delBtn.type = 'button';
+                    delBtn.className = 'icon-btn';
+                    delBtn.innerHTML = '&times;';
+                    delBtn.style.color = '#ef4444';
+                    delBtn.title = 'Delete Subtask';
+                    delBtn.onclick = function () {
+                        row.style.display = 'none';
+                        // Mark for deletion
+                        const currentDeleted = deletedInput.value ? deletedInput.value.split(',') : [];
+                        currentDeleted.push(sub.id);
+                        deletedInput.value = currentDeleted.join(',');
+                    };
+
+                    row.appendChild(input);
+                    row.appendChild(delBtn);
+                    subtaskContainer.appendChild(row);
+                });
+            } else {
+                subtaskContainer.innerHTML = '<span style="color: var(--text-secondary); font-size: 0.8rem;">No subtasks to edit.</span>';
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeEditModal(e) {
+            if (e.target === document.getElementById('editModal')) {
+                document.getElementById('editModal').classList.remove('active');
+            }
+        }
+
+        // --- Multi-Timer Logic ---
+        const taskTimers = new Map(); // Store intervals by button/row reference
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function toggleFocusPanel(btn) {
+            const row = btn.closest('.task-item').querySelector('.focus-row');
+            row.classList.toggle('active');
+
+            // Init display if not set or if it's 00:00 and not running
+            const display = row.querySelector('.timer-display');
+            const input = row.querySelector('.duration-input');
+            if (display.textContent === "00:00" && !taskTimers.has(row)) {
+                const initialTime = parseInt(input.value) * 60;
+                display.textContent = formatTime(initialTime);
+            }
+        }
+
+        function startTaskTimer(btn) {
+            const row = btn.closest('.focus-row');
+            const display = row.querySelector('.timer-display');
+            const input = row.querySelector('.duration-input');
+
+            // If already running, do nothing
+            if (taskTimers.has(row)) return;
+
+            // Get current remaining time from display parsing
+            let [m, s] = display.textContent.split(':').map(Number);
+            let totalSeconds = m * 60 + s;
+
+            // If timer is at 0, reset from input value
+            if (totalSeconds <= 0) {
+                totalSeconds = parseInt(input.value) * 60;
+                display.textContent = formatTime(totalSeconds); // Update display immediately
+            }
+
+            const interval = setInterval(() => {
+                if (totalSeconds <= 0) {
+                    clearInterval(interval);
+                    taskTimers.delete(row);
+                    startAlarm("Task Timer Complete!");
+                    return;
+                }
+                totalSeconds--;
+                display.textContent = formatTime(totalSeconds);
+            }, 1000);
+
+            taskTimers.set(row, interval);
+        }
+
+        function pauseTaskTimer(btn) {
+            const row = btn.closest('.focus-row');
+            if (taskTimers.has(row)) {
+                clearInterval(taskTimers.get(row));
+                taskTimers.delete(row);
+            }
+        }
+
+        function stopTaskTimer(btn) {
+            const row = btn.closest('.focus-row');
+            if (taskTimers.has(row)) {
+                clearInterval(taskTimers.get(row));
+                taskTimers.delete(row);
+            }
+            // Reset to input value
+            const input = row.querySelector('.duration-input');
+            const initialSeconds = parseInt(input.value) * 60;
+            const display = row.querySelector('.timer-display');
+            display.textContent = formatTime(initialSeconds);
+        }
+
+        // Notification Permission
+        if ("Notification" in window) {
+            Notification.requestPermission();
+        }
+
+        // Due Date Timers Logic (Original)
+        function updateDueTimers() {
+            const now = new Date();
+            const taskItems = document.querySelectorAll('.task-item');
+
+            taskItems.forEach(item => {
+                if (item.classList.contains('completed')) return;
+                const dueStr = item.getAttribute('data-due');
+                if (!dueStr) return;
+
+                const dueDate = new Date(dueStr);
+                const diff = dueDate - now;
+                const timerText = item.querySelector('.timer-text');
+                const badge = item.querySelector('.timer-badge');
+                if (!timerText) return;
+
+                if (diff <= 0) {
+                    timerText.textContent = "Overdue!";
+                    badge.classList.add('overdue');
+                    item.classList.add('overdue');
+                } else {
+                    const diffSeconds = Math.floor(diff / 1000);
+                    const days = Math.floor(diffSeconds / (3600 * 24));
+                    const hours = Math.floor((diffSeconds % (3600 * 24)) / 3600);
+                    const minutes = Math.floor((diffSeconds % 3600) / 60);
+
+                    let timeString = "";
+                    if (days > 0) timeString += `${days}d `;
+                    if (hours > 0) timeString += `${hours}h `;
+                    timeString += `${minutes}m`;
+
+                    if (days === 0 && hours === 0 && minutes < 60) {
+                        timeString = "< 1h";
+                        badge.classList.add('urgent');
+                    }
+
+                    timerText.textContent = timeString;
+                }
+            });
+        }
+        setInterval(updateDueTimers, 1000);
+        updateDueTimers();
+
+        // Periodic Reminder Logic (Every 15 mins for overdue items)
+        function checkReminders() {
+            if (!("Notification" in window) || Notification.permission !== "granted") return;
+
+            const now = new Date();
+            const taskItems = document.querySelectorAll('.task-item');
+
+            taskItems.forEach(item => {
+                if (item.classList.contains('completed')) return; // Ignore completed
+
+                const dueStr = item.getAttribute('data-due');
+                if (!dueStr) return;
+
+                const dueDate = new Date(dueStr);
+                const taskId = item.getAttribute('data-id');
+                const taskTitle = item.getAttribute('data-title');
+
+                // If overdue
+                if (now > dueDate) {
+                    const storageKey = `reminder_sent_${taskId}`;
+                    const lastSent = localStorage.getItem(storageKey);
+                    const nowTs = now.getTime();
+
+                    // Check if never sent OR sent > 15 mins ago
+                    if (!lastSent || (nowTs - parseInt(lastSent)) >= 15 * 60 * 1000) {
+
+                        // Send Notification
+                        new Notification(`Task Overdue: ${taskTitle}`, {
+                            body: "This task is overdue! Time to wrap it up.",
+                            icon: "{{ url_for('static', filename='icons/icon-192x192.png') }}" // fallback icon
+                        });
+
+                        // Play Sound
+                        if (window.notificationSound) {
+                            window.notificationSound.play().catch(e => console.log('Audio error:', e));
+                        } else {
+                            // Fallback/Global reference check
+                            const sound = new Audio("{{ url_for('static', filename='sounds/notification.wav') }}");
+                            sound.play().catch(e => console.log('Audio error:', e));
+                        }
+
+                        // Update timestamp
+                        localStorage.setItem(storageKey, nowTs);
+                    }
+                }
+            });
+        }
+        // Check every 10 seconds (to catch the 'due time' relatively quickly and handle the 15min repeats)
+        setInterval(checkReminders, 10000);
+        // Also Request permission on load if not granted
+        if ("Notification" in window && Notification.permission !== "granted") {
+            Notification.requestPermission();
+        }
+
+        // --- Keep-like Features Logic ---
+
+        // Grid Toggle
+        function toggleGridView() {
+            const list = document.getElementById('taskList');
+            const listIcon = document.querySelector('.list-icon');
+            const gridIcon = document.querySelector('.grid-icon');
+            const label = document.getElementById('viewLabel');
+
+            list.classList.toggle('grid-view');
+
+            if (list.classList.contains('grid-view')) {
+                listIcon.style.display = 'none';
+                gridIcon.style.display = 'block';
+                label.textContent = "Grid";
+                localStorage.setItem('viewMode', 'grid');
+            } else {
+                listIcon.style.display = 'block';
+                gridIcon.style.display = 'none';
+                label.textContent = "list";
+                localStorage.setItem('viewMode', 'list');
+            }
+        }
+
+        // Restore View Mode
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('viewMode') === 'grid') {
+                toggleGridView();
+            }
+        });
+
+        // Color Picker
+        function toggleColorPicker(btn) {
+            const popover = btn.parentElement.querySelector('.color-picker-popover');
+            const currentDisplay = popover.style.display;
+
+            // Close others
+            document.querySelectorAll('.color-picker-popover').forEach(el => el.style.display = 'none');
+
+            popover.style.display = currentDisplay === 'flex' ? 'none' : 'flex';
+            event.stopPropagation();
+        }
+
+        function selectColor(color) {
+            document.getElementById('selectedColor').value = color;
+
+            // Visual feedback
+            const wrapper = document.getElementById('addForm');
+            // Remove existing color classes
+            wrapper.classList.remove('color-default', 'color-red', 'color-orange', 'color-yellow', 'color-green', 'color-teal', 'color-blue', 'color-gray');
+            wrapper.classList.add('color-' + color);
+
+            document.querySelectorAll('.color-picker-popover').forEach(el => el.style.display = 'none');
+        }
+
+        // View Card (Read Only)
+        function viewCard(el) {
+            const modal = document.getElementById('viewModal');
+            const title = el.dataset.title;
+            const desc = el.dataset.description;
+            const cat = el.dataset.category;
+            const prio = el.dataset.priority;
+            const due = el.dataset.due;
+            const tags = el.dataset.tags;
+            const attachment = el.dataset.attachment;
+
+            // Clone subtasks
+            const color = el.dataset.color;
+
+            // Clone subtasks
+            const subtasks = el.querySelector('.subtask-list').innerHTML;
+
+            // Set color theme
+            const content = document.getElementById('viewModalContent');
+            content.classList.remove('color-default', 'color-red', 'color-orange', 'color-yellow', 'color-green', 'color-teal', 'color-blue', 'color-gray');
+            content.classList.add('color-' + (color || 'default'));
+
+            document.getElementById('viewTitle').textContent = title;
+            document.getElementById('viewDescription').textContent = desc;
+            document.getElementById('viewCategory').textContent = cat;
+
+            const prioBadge = document.getElementById('viewPriority');
+            prioBadge.textContent = prio;
+            prioBadge.className = `priority-badge priority-${prio.toLowerCase()}`;
+
+            const dateBadge = document.getElementById('viewDate');
+            if (due) {
+                dateBadge.textContent = due.replace('T', ' ');
+                dateBadge.style.display = 'flex';
+            } else {
+                dateBadge.style.display = 'none';
+            }
+
+            const viewAttachment = document.getElementById('viewAttachment');
+            if (attachment) {
+                viewAttachment.src = attachment;
+                viewAttachment.style.display = 'block';
+                viewAttachment.onclick = () => window.open(attachment, '_blank');
+                viewAttachment.style.cursor = 'pointer';
+            } else {
+                viewAttachment.style.display = 'none';
+            }
+
+            document.getElementById('viewTags').textContent = tags ? tags : '';
+            document.getElementById('viewSubtasks').innerHTML = subtasks;
+
+            modal.classList.add('active');
+
+            modal.classList.add('active');
+        }
+
+        function closeViewModal(e) {
+            if (e.target === document.getElementById('viewModal')) {
+                document.getElementById('viewModal').classList.remove('active');
+            }
+        }
+
+        // Open Edit Modal
+
+
+        // Close popover when clicking outside
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.color-picker-popover').forEach(el => el.style.display = 'none');
+        });
+
+        // Voice Note (Web Speech API)
+        function startDictation() {
+            if (window.hasOwnProperty('webkitSpeechRecognition')) {
+                const recognition = new webkitSpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = "en-US";
+
+                const btn = document.querySelector('button[onclick="startDictation()"]');
+                btn.classList.add('active'); // Visual cue (would need CSS for pulse)
+
+                recognition.onresult = function (e) {
+                    const transcript = e.results[0][0].transcript;
+                    const titleInput = document.getElementById('noteTitle');
+                    const descInput = document.getElementById('noteDesc');
+
+                    if (titleInput.value === '' && titleInput.style.display === 'block') {
+                        titleInput.value = transcript;
+                    } else {
+                        descInput.value += (descInput.value ? ' ' : '') + transcript;
+                    }
+                    btn.classList.remove('active');
+                    expandForm(); // Ensure form is open
+                };
+
+                recognition.onerror = function (e) {
+                    alert("Error: " + e.error);
+                    btn.classList.remove('active');
+                };
+
+                recognition.onend = function () {
+                    btn.classList.remove('active');
+                }
+
+                recognition.start();
+            } else {
+                alert("Speech recognition not supported in this browser. Try Chrome.");
+            }
+        }
+    </script>
+</body>
+
+</html>
