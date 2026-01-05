@@ -8,13 +8,13 @@
     ],
     "icons": [
         {
-            "src": "/icons/logo.png",
+            "src": "/logo.png",
             "sizes": "192x192",
             "type": "image/png",
             "purpose": "any maskable"
         },
         {
-            "src": "/icons/logo.png",
+            "src": "/logo.png",
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "any maskable"
@@ -32,7 +32,7 @@
             "description": "Quickly create a new note",
             "icons": [
                 {
-                    "src": "/icons/logo.png",
+                    "src": "/logo.png",
                     "sizes": "192x192"
                 }
             ]
@@ -43,7 +43,7 @@
             "description": "Check your daily tasks",
             "icons": [
                 {
-                    "src": "/icons/logo.png",
+                    "src": "/logo.png",
                     "sizes": "192x192"
                 }
             ]

@@ -23,8 +23,8 @@
             "destination": "api/index.py"
         },
         {
-            "source": "/icons/(.*)",
-            "destination": "/frontend/public/icons/$1"
+            "source": "/logo.png",
+            "destination": "/frontend/public/logo.png"
         },
         {
             "source": "/(.*)",

@@ -535,7 +535,7 @@ function App() {
               </button>
             )}
             <div style={{ background: '#000', width: '100px', height: '100px', borderRadius: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(99, 102, 241, 0.4)', overflow: 'hidden' }}>
-              <img src="/icons/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
             <div>
               <h2 style={{ fontSize: '1.8rem', marginBottom: '0.5rem' }}>Install Swify</h2>
@@ -551,7 +551,7 @@ function App() {
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="brand" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <img src="/icons/logo.png" alt="Swify Logo" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover' }} />
+          <img src="/logo.png" alt="Swify Logo" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover' }} />
           <h1>Swify</h1>
         </div>
 
