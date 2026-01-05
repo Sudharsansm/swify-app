@@ -304,13 +304,20 @@ function App() {
 
       // Check standard milestones
       milestones.forEach(m => {
+        // If we are past the milestone time
         if (diff >= m.offset && !history[m.id]) {
-          // If we are past the milestone and haven't sent it yet
-          // But only send if we aren't past the NEXT milestone already (to avoid blast of old notifications)
+          // Send notification if we are still within a reasonable 'activation window' for this milestone
+          // (e.g., we don't send the '5m before' notification if it's already 10m after)
           const nextMilestone = milestones[milestones.indexOf(m) + 1];
-          if (!nextMilestone || diff < nextMilestone.offset) {
+          const isMostRecentUnsent = !nextMilestone || diff < nextMilestone.offset;
+
+          if (isMostRecentUnsent) {
             sendNotification(task, m.msg);
             history[m.id] = true;
+            localStorage.setItem(historyKey, JSON.stringify(history));
+          } else {
+            // Mark as 'skipped' so we don't try to send it later, keeping history clean
+            history[m.id] = 'skipped';
             localStorage.setItem(historyKey, JSON.stringify(history));
           }
         }
@@ -329,10 +336,22 @@ function App() {
   };
 
   const sendNotification = (task, message) => {
-    new Notification(`Task: ${task.title}`, {
+    const title = `Task: ${task.title}`;
+    const options = {
       body: message,
-      icon: "/static/icons/icon-192x192.png"
-    });
+      icon: "/logo.png",
+      badge: "/logo.png",
+      vibrate: [200, 100, 200]
+    };
+
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then(registration => {
+        registration.showNotification(title, options);
+      });
+    } else {
+      new Notification(title, options);
+    }
+
     if (notificationSound.current) {
       notificationSound.current.currentTime = 0;
       notificationSound.current.play().catch(e => console.log(e));
@@ -764,9 +783,19 @@ function App() {
                           <span className={`priority-badge priority-${task.priority.toLowerCase()}`}>{task.priority}</span>
                           <span className="badge" style={{ fontSize: '0.7rem' }}>{task.category}</span>
                           {task.due_date && (
-                            <div className="timer-badge" title="Due Date">
-                              {Icons.Time}
-                              <span className="timer-text">{new Date(task.due_date).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                            <div className="timer-badge" title="Due Date" style={{
+                              background: (!task.completed && new Date(task.due_date) < now) ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.05)',
+                              border: (!task.completed && new Date(task.due_date) < now) ? '1px solid #ef4444' : '1px solid var(--glass-border)'
+                            }}>
+                              <span style={{ color: (!task.completed && new Date(task.due_date) < now) ? '#ef4444' : 'inherit', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                {Icons.Time}
+                                <span className="timer-text">
+                                  {new Date(task.due_date).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                  {!task.completed && new Date(task.due_date) < now && (
+                                    <strong style={{ marginLeft: '6px', fontSize: '0.65rem', letterSpacing: '0.5px' }}>[ OVERDUE ]</strong>
+                                  )}
+                                </span>
+                              </span>
                             </div>
                           )}
                           {task.tags && (
