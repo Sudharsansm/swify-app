@@ -1,6 +1,6 @@
 import os
 import sys
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from datetime import datetime
@@ -91,6 +91,10 @@ class Subtask(db.Model):
 
 with app.app_context():
     db.create_all()
+
+@app.route('/static/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
