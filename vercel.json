@@ -13,30 +13,28 @@
             }
         }
     ],
-    "rewrites": [
+    "routes": [
         {
-            "source": "/api/(.*)",
-            "destination": "api/index.py"
+            "src": "/api/(.*)",
+            "dest": "/api/index.py"
         },
         {
-            "source": "/static/uploads/(.*)",
-            "destination": "api/index.py"
+            "src": "/static/uploads/(.*)",
+            "dest": "/api/index.py"
         },
         {
-            "source": "/sw.js",
-            "destination": "/sw.js"
+            "src": "/(logo.png|manifest.json|sw.js|screenshot1.png|screenshot2.png)",
+            "dest": "/$1",
+            "continue": true
         },
         {
-            "source": "/manifest.json",
-            "destination": "/manifest.json"
+            "src": "/assets/(.*)",
+            "dest": "/assets/$1",
+            "continue": true
         },
         {
-            "source": "/logo.png",
-            "destination": "/logo.png"
-        },
-        {
-            "source": "/(.*)",
-            "destination": "/index.html"
+            "src": "/(.*)",
+            "dest": "/index.html"
         }
     ],
     "headers": [
@@ -50,15 +48,6 @@
                 {
                     "key": "Service-Worker-Allowed",
                     "value": "/"
-                }
-            ]
-        },
-        {
-            "source": "/manifest.json",
-            "headers": [
-                {
-                    "key": "Cache-Control",
-                    "value": "public, max-age=0, must-revalidate"
                 }
             ]
         }

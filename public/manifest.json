@@ -1,0 +1,76 @@
+{
+    "name": "Swify | Premium Task & Focus Suite",
+    "short_name": "Swify",
+    "description": "The Diamond Standard for modern productivity. Capture notes, track focus, and stay ahead with intelligent multi-stage notifications.",
+    "categories": [
+        "productivity",
+        "utilities",
+        "lifestyle"
+    ],
+    "icons": [
+        {
+            "src": "/logo.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/logo.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/logo.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "/screenshot1.png",
+            "sizes": "1920x1080",
+            "type": "image/png",
+            "form_factor": "wide",
+            "label": "Swify Premium Dashboard"
+        },
+        {
+            "src": "/screenshot2.png",
+            "sizes": "1920x1080",
+            "type": "image/png",
+            "form_factor": "wide",
+            "label": "Interactive Focus Mode"
+        }
+    ],
+    "start_url": "/",
+    "display": "standalone",
+    "theme_color": "#6366f1",
+    "background_color": "#0f172a",
+    "orientation": "portrait",
+    "shortcuts": [
+        {
+            "name": "Add New Note",
+            "url": "/?action=add",
+            "description": "Immediately capture a new idea",
+            "icons": [
+                {
+                    "src": "/logo.png",
+                    "sizes": "192x192"
+                }
+            ]
+        },
+        {
+            "name": "Focus Timer",
+            "url": "/?focus=start",
+            "description": "Starts the global focus session",
+            "icons": [
+                {
+                    "src": "/logo.png",
+                    "sizes": "192x192"
+                }
+            ]
+        }
+    ],
+    "prefer_related_applications": false
+}
