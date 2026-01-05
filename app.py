@@ -6,11 +6,19 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///todo_v3.db'
+# Vercel handling: SQLite must be in /tmp for write access in serverless functions
+if os.environ.get('VERCEL'):
+    db_path = '/tmp/todo_v3.db'
+    upload_folder = '/tmp/uploads'
+else:
+    db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'todo_v3.db')
+    upload_folder = 'static/uploads'
+
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config['UPLOAD_FOLDER'] = upload_folder
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
 
 # Ensure upload directory exists
