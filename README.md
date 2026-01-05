@@ -126,4 +126,4 @@ swify/
 - **AI Integration:** Structure is prepared for "AI Search" and "Smart Task Summaries".
 
 ---
-*Created by Antigravity for the USER. © 2026 Swify Project.*
+*Created by Sudharsan for the USER. © 2026 Swify Project.*
