@@ -23,8 +23,20 @@
             "destination": "api/index.py"
         },
         {
+            "source": "/sw.js",
+            "destination": "/sw.js"
+        },
+        {
+            "source": "/manifest.json",
+            "destination": "/manifest.json"
+        },
+        {
+            "source": "/logo.png",
+            "destination": "/logo.png"
+        },
+        {
             "source": "/(.*)",
-            "destination": "/"
+            "destination": "/index.html"
         }
     ],
     "headers": [
