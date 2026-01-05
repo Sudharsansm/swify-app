@@ -1,23 +1,46 @@
 {
-    "name": "Swify | Premium Note App",
+    "name": "Swify | Premium Task & Focus Suite",
     "short_name": "Swify",
-    "description": "Premium Note-Taking and Task Management App with AI Intelligence.",
+    "description": "The Diamond Standard for modern productivity. Capture notes, track focus, and stay ahead with intelligent multi-stage notifications.",
     "categories": [
         "productivity",
-        "utilities"
+        "utilities",
+        "lifestyle"
     ],
     "icons": [
         {
             "src": "/logo.png",
             "sizes": "192x192",
             "type": "image/png",
-            "purpose": "any maskable"
+            "purpose": "any"
         },
         {
             "src": "/logo.png",
             "sizes": "512x512",
             "type": "image/png",
-            "purpose": "any maskable"
+            "purpose": "any"
+        },
+        {
+            "src": "/logo.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "/screenshot1.png",
+            "sizes": "1920x1080",
+            "type": "image/png",
+            "form_factor": "wide",
+            "label": "Swify Premium Dashboard"
+        },
+        {
+            "src": "/screenshot2.png",
+            "sizes": "1920x1080",
+            "type": "image/png",
+            "form_factor": "wide",
+            "label": "Interactive Focus Mode"
         }
     ],
     "start_url": "/",
@@ -29,7 +52,7 @@
         {
             "name": "Add New Note",
             "url": "/?action=add",
-            "description": "Quickly create a new note",
+            "description": "Immediately capture a new idea",
             "icons": [
                 {
                     "src": "/logo.png",
@@ -38,9 +61,9 @@
             ]
         },
         {
-            "name": "View TO-DO List",
-            "url": "/?category=TO-DO",
-            "description": "Check your daily tasks",
+            "name": "Focus Timer",
+            "url": "/?focus=start",
+            "description": "Starts the global focus session",
             "icons": [
                 {
                     "src": "/logo.png",
