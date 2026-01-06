@@ -771,20 +771,8 @@ function App() {
               🔔 Enable Notifications
             </button>
           )}
-
-          <button className="add-btn" style={{ width: '100%', background: '#3b82f6', color: '#fff', fontSize: '0.85rem' }}
-            onClick={() => {
-              const audio = new Audio('/sounds/notification.wav');
-              audio.volume = 1.0;
-              audio.play().catch(e => console.warn("Test sound blocked", e));
-              sendNotification({ title: 'Test Alert', id: 'test-manual' }, 'Sound and Notification Test.');
-            }}>
-            🔊 Test Alert
-          </button>
-
-
-
         </div>
+
       </aside>
 
       {/* Main Content */}
