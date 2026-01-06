@@ -23,8 +23,16 @@
             "destination": "/api/index.py"
         },
         {
+            "handle": "filesystem"
+        },
+        {
             "source": "/(.*)",
-            "destination": "/index.html"
+            "destination": "/frontend/$1",
+            "continue": true
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/frontend/index.html"
         }
     ],
     "headers": [
