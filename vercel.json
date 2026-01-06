@@ -13,28 +13,18 @@
             }
         }
     ],
-    "routes": [
+    "rewrites": [
         {
-            "src": "/api/(.*)",
-            "dest": "/api/index.py"
+            "source": "/api/(.*)",
+            "destination": "/api/index.py"
         },
         {
-            "src": "/static/uploads/(.*)",
-            "dest": "/api/index.py"
+            "source": "/static/uploads/(.*)",
+            "destination": "/api/index.py"
         },
         {
-            "src": "/(logo.png|manifest.json|sw.js|screenshot1.png|screenshot2.png)",
-            "dest": "/$1",
-            "continue": true
-        },
-        {
-            "src": "/assets/(.*)",
-            "dest": "/assets/$1",
-            "continue": true
-        },
-        {
-            "src": "/(.*)",
-            "dest": "/index.html"
+            "source": "/(.*)",
+            "destination": "/index.html"
         }
     ],
     "headers": [

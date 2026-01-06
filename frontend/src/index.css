@@ -984,3 +984,40 @@ body {
         justify-content: center;
     }
 }
+
+/* Base fade for modals */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* In-App Toast Animations */
+@keyframes fadeInRight {
+    from {
+        opacity: 0;
+        transform: translateX(50px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.in-app-toast {
+    animation: fadeInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (max-width: 600px) {
+    .in-app-toast {
+        left: 1rem !important;
+        right: 1rem !important;
+        min-width: auto !important;
+        bottom: 1rem !important;
+    }
+}

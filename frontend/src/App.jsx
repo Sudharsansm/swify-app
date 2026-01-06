@@ -65,28 +65,73 @@ function App() {
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [showInstallClose, setShowInstallClose] = useState(false);
 
-  // Alarm
+  // Alarm State
   const [alarmMessage, setAlarmMessage] = useState(null);
-  const alarmAudio = useRef(new Audio('/static/sounds/notification.wav'));
+  const [notifPermission, setNotifPermission] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'default');
+  const [toast, setToast] = useState(null); // In-app notification fallback
 
-  // Notification Sound
-  const notificationSound = useRef(new Audio('/static/sounds/notification.wav'));
+  // Sync tasksRef for intervals
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+
+  // Toast Component logic
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  // Alarm and Notification Sounds
+  // Using paths relative to public folder
+  const alarmAudio = useRef(null);
+  const notificationSound = useRef(null);
+
+  useEffect(() => {
+    alarmAudio.current = new Audio('/sounds/notification.wav');
+    notificationSound.current = new Audio('/sounds/notification.wav');
+    alarmAudio.current.load();
+    notificationSound.current.load();
+
+    // Auto-play policy "unlocker"
+    const unlockAudio = () => {
+      if (alarmAudio.current) {
+        alarmAudio.current.play().then(() => alarmAudio.current.pause()).catch(() => { });
+      }
+      if (notificationSound.current) {
+        notificationSound.current.play().then(() => notificationSound.current.pause()).catch(() => { });
+      }
+      document.removeEventListener('click', unlockAudio);
+      document.removeEventListener('touchstart', unlockAudio);
+    };
+    document.addEventListener('click', unlockAudio);
+    document.addEventListener('touchstart', unlockAudio);
+
+    return () => {
+      document.removeEventListener('click', unlockAudio);
+      document.removeEventListener('touchstart', unlockAudio);
+    };
+  }, []);
+
+  // Ref to always have the latest tasks for the intervals
+  const tasksRef = useRef([]);
+  useEffect(() => {
+    // We poll the API directly in checkReminders to avoid stale refs and respect filters
+  }, []);
 
   useEffect(() => {
     fetchTasks();
     const clockInterval = setInterval(() => setNow(new Date()), 1000);
-    const reminderInterval = setInterval(checkReminders, 10000);
-
-    // Request notification permission
-    if ("Notification" in window && Notification.permission !== "granted") {
-      Notification.requestPermission();
-    }
-
-    return () => {
-      clearInterval(clockInterval);
-      clearInterval(reminderInterval);
-    };
+    return () => clearInterval(clockInterval);
   }, [filter, search]);
+
+  // Persistent background reminder loop (Independent of UI filters)
+  useEffect(() => {
+    const reminderInterval = setInterval(() => checkReminders(), 3000);
+    console.log("[Scheduler] Background reminder loop started.");
+    return () => clearInterval(reminderInterval);
+  }, []);
 
   // Separate useEffect for PWA and persistent setup (Runs only once)
   useEffect(() => {
@@ -94,7 +139,9 @@ function App() {
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
-          .then(reg => console.log('SW registered!', reg))
+          .then(reg => {
+            console.log('SW registered!', reg);
+          })
           .catch(err => console.log('SW registration failed:', err));
       });
     }
@@ -102,14 +149,20 @@ function App() {
     // Check if already installed
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-    // Show banner after 45 seconds if not installed
-    if (!isStandalone) {
+    // Show banner after 45 seconds if not installed and not already shown
+    const bannerAlreadyShown = localStorage.getItem('swify_install_banner_shown');
+    if (!isStandalone && !bannerAlreadyShown) {
       setTimeout(() => {
-        setShowInstallBanner(true);
-        // After showing banner, wait another 10 seconds to show X
-        setTimeout(() => {
-          setShowInstallClose(true);
-        }, 10000);
+        // Double check standalone status right before showing
+        const nowStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        if (!nowStandalone) {
+          setShowInstallBanner(true);
+          localStorage.setItem('swify_install_banner_shown', 'true');
+          // After showing banner, wait another 10 seconds to show X
+          setTimeout(() => {
+            setShowInstallClose(true);
+          }, 10000);
+        }
       }, 45000);
     }
 
@@ -127,11 +180,48 @@ function App() {
     };
   }, []);
 
+
+  // Automatic permission request on mount (Matches "Yesterday" behavior)
+  useEffect(() => {
+    // Audio Unlocker: Mobile browsers require user interaction to play sound
+    const unlockAudio = () => {
+      if (notificationSound.current) {
+        notificationSound.current.play().then(() => {
+          notificationSound.current.pause();
+          notificationSound.current.currentTime = 0;
+        }).catch(e => console.log("Audio unlock attempted"));
+      }
+      // Remove listener once unlocked
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+    };
+
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('touchstart', unlockAudio);
+
+    // Specifically check if permission is default (msg not yet seen)
+    if ("Notification" in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().then(permission => {
+          setNotifPermission(permission);
+          if (permission === 'granted') {
+            sendNotification({ title: 'Notifications Enabled!', id: 'test' }, 'You will now receive task reminders.');
+          }
+        });
+      } else {
+        // Just sync state
+        setNotifPermission(Notification.permission);
+      }
+    }
+  }, []);
+
   const fetchTasks = async () => {
     try {
       const res = await API.getTasks(filter || 'all', search);
-      setTasks(res.data.tasks);
+      const newTasks = res.data.tasks;
+      setTasks(newTasks);
       setCounts(res.data.counts);
+
     } catch (err) {
       console.error(err);
     }
@@ -182,11 +272,18 @@ function App() {
   };
 
   // --- Alarm Logic ---
-  const triggerAlarm = (msg) => {
+  const triggerAlarm = (msg, notifTitle = '⏰ Timer Finished!', notifId = 'focus-complete') => {
     setAlarmMessage(msg);
+
+    // 1. Play Loop (In-App)
     if (alarmAudio.current) {
       alarmAudio.current.loop = true;
       alarmAudio.current.play().catch(e => console.log(e));
+    }
+
+    // 2. Send System Notification (Push to Lock Screen)
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      sendNotification({ title: notifTitle, id: notifId }, msg);
     }
   };
 
@@ -280,82 +377,147 @@ function App() {
 
 
   // --- Advanced Reminders ---
-  const checkReminders = () => {
-    if (!("Notification" in window) || Notification.permission !== "granted") return;
-
+  const checkReminders = async () => {
     const nowTs = new Date().getTime();
+
+    // FETCH ALL TASKS directly from DB to ignore UI filters
+    let allTasks = [];
+    try {
+      const res = await API.getTasks('all', '');
+      allTasks = res.data.tasks;
+    } catch (err) {
+      console.error("Failed to fetch tasks for reminders", err);
+      return;
+    }
+
     const milestones = [
-      { id: '5m_before', offset: -5 * 60 * 1000, msg: "Starts in 5 minutes!" },
-      { id: 'end', offset: 0, msg: "Time is up!" },
-      { id: '10m_after', offset: 10 * 60 * 1000, msg: "Overdue by 10 minutes!" },
+      { id: '30m_before', offset: -30 * 60 * 1000, msg: "Due in 30 minutes!" },
+      { id: '15m_before', offset: -15 * 60 * 1000, msg: "Due in 15 minutes!" },
+      { id: '10m_before', offset: -10 * 60 * 1000, msg: "Due in 10 minutes!" },
+      { id: 'end', offset: 0, msg: "Time is up! Task is due now." },
+      { id: '5m_after', offset: 5 * 60 * 1000, msg: "Overdue by 5 minutes!" },
+      { id: '15m_after', offset: 15 * 60 * 1000, msg: "Overdue by 15 minutes!" },
       { id: '30m_after', offset: 30 * 60 * 1000, msg: "Overdue by 30 minutes!" },
       { id: '1h_after', offset: 60 * 60 * 1000, msg: "Overdue by 1 hour!" },
       { id: '5h_after', offset: 5 * 60 * 60 * 1000, msg: "Overdue by 5 hours!" },
       { id: '12h_after', offset: 12 * 60 * 60 * 1000, msg: "Overdue by 12 hours!" },
-      { id: '24h_after', offset: 24 * 60 * 60 * 1000, msg: "Overdue by 24 hours!" }
+      { id: '24h_after', offset: 24 * 60 * 60 * 1000, msg: "Overdue by 1 day!" }
     ];
 
-    tasks.forEach(task => {
-      if (task.completed || !task.due_date) return;
+    for (const task of allTasks) {
+      if (task.completed || !task.due_date) continue;
       const due = new Date(task.due_date).getTime();
       const diff = nowTs - due;
-      const historyKey = `reminder_history_${task.id}`;
-      let history = JSON.parse(localStorage.getItem(historyKey) || '{}');
 
-      // Check standard milestones
-      milestones.forEach(m => {
-        // If we are past the milestone time
-        if (diff >= m.offset && !history[m.id]) {
-          // Send notification if we are still within a reasonable 'activation window' for this milestone
-          // (e.g., we don't send the '5m before' notification if it's already 10m after)
-          const nextMilestone = milestones[milestones.indexOf(m) + 1];
-          const isMostRecentUnsent = !nextMilestone || diff < nextMilestone.offset;
+      try {
+        const history = await API.getReminderHistory(task.id);
 
-          if (isMostRecentUnsent) {
-            sendNotification(task, m.msg);
-            history[m.id] = true;
-            localStorage.setItem(historyKey, JSON.stringify(history));
-          } else {
-            // Mark as 'skipped' so we don't try to send it later, keeping history clean
-            history[m.id] = 'skipped';
-            localStorage.setItem(historyKey, JSON.stringify(history));
+        // Respect Snooze (if snoozed in background)
+        if (history.snooze_until && nowTs < history.snooze_until) continue;
+
+        let latestFgMilestone = null;
+
+        // 1. Check discrete milestones
+        milestones.forEach(m => {
+          // Smart Skip: If less than 5 mins remain (or overdue), skip 10m+ pre-warnings
+          if (diff > -5 * 60 * 1000 && m.offset <= -10 * 60 * 1000) return;
+
+          if (diff >= m.offset) {
+            // Check if this specific App session has notified this milestone yet.
+            if (!history[m.id + '_fg']) {
+              latestFgMilestone = m;
+            }
           }
-        }
-      });
+        });
 
-      // Daily recurrence after 24 hours
-      if (diff > 24 * 60 * 60 * 1000) {
-        const lastDaily = history['last_daily'] || 0;
-        if (nowTs - lastDaily >= 24 * 60 * 60 * 1000) {
-          sendNotification(task, "Daily Overdue Reminder!");
-          history['last_daily'] = nowTs;
-          localStorage.setItem(historyKey, JSON.stringify(history));
+        // 2. Refresh Daily if WAY Overdue (> 24h)
+        const oneDay = 24 * 60 * 60 * 1000;
+        const lastNotifiedFg = history.last_notified_fg || 0;
+        if (diff > oneDay && (nowTs - lastNotifiedFg) >= oneDay) {
+          latestFgMilestone = { id: 'recurring_daily', msg: "Still Overdue! Please complete this task." };
         }
+
+        if (latestFgMilestone) {
+          console.log(`[Foreground Engine] Triggering milestone: ${latestFgMilestone.id} for task ${task.id}`);
+          sendNotification(task, latestFgMilestone.msg);
+
+          // Mark this milestone as 'seen' by the App
+          milestones.forEach(m => {
+            if (diff >= m.offset) history[m.id + '_fg'] = true;
+          });
+
+          history.last_notified_fg = nowTs;
+          await API.setReminderHistory(task.id, history);
+        }
+      } catch (error) {
+        console.error(`Error checking reminder history for task ${task.id}:`, error);
       }
-    });
+    }
   };
 
   const sendNotification = (task, message) => {
-    const title = `Task: ${task.title}`;
-    const options = {
-      body: message,
-      icon: "/logo.png",
-      badge: "/logo.png",
-      vibrate: [200, 100, 200]
-    };
+    const title = `Swify: ${task.title}`;
 
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.ready.then(registration => {
-        registration.showNotification(title, options);
-      });
-    } else {
-      new Notification(title, options);
-    }
+    // 1. In-App Visual Toast
+    setToast({ title: task.title, message });
 
+    // 2. Resilient Sound Play (Using Clone to ensure it triggers)
     if (notificationSound.current) {
-      notificationSound.current.currentTime = 0;
-      notificationSound.current.play().catch(e => console.log(e));
+      try {
+        const audioClone = notificationSound.current.cloneNode();
+        audioClone.volume = 1.0;
+        audioClone.play().catch(e => console.warn("Sound blocked. Tap screen.", e));
+      } catch (err) {
+        console.error("Clone audio logic failed", err);
+      }
     }
+
+    // 3. System Push Notification
+    if (typeof Notification !== 'undefined' && Notification.permission === "granted") {
+      const options = {
+        body: message,
+        icon: "/logo.png",
+        badge: "/logo.png",
+        tag: `task-${task.id}`,
+        renotify: true,
+        vibrate: [200, 100, 200],
+        requireInteraction: true,
+        data: { taskId: task.id }
+      };
+
+      try {
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.ready.then(registration => {
+            registration.showNotification(title, options).catch(() => {
+              new Notification(title, options);
+            });
+          });
+        } else {
+          new Notification(title, options);
+        }
+      } catch (err) {
+        console.error("Native push failed:", err);
+      }
+    } else if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  };
+
+  const requestNotificationPermission = () => {
+    if (typeof Notification === 'undefined') {
+      alert("This browser does not support notifications.");
+      return;
+    }
+    Notification.requestPermission().then(permission => {
+      setNotifPermission(permission);
+      if (permission === 'granted') {
+        const audio = new Audio('/sounds/notification.wav'); // Force new audio instance for test
+        audio.play().catch(e => alert("Sound failed to play. Please tap anywhere on the page to unlock audio."));
+        sendNotification({ title: 'Notifications Enabled!', id: 'test' }, 'You will now receive task reminders with sound.');
+      } else if (permission === 'denied') {
+        alert("⚠️ Notifications are BLOCKED.\n\nPlease click the 'Lock' icon in your browser URL bar and set Notifications to 'Allow'.");
+      }
+    });
   };
 
   // --- Form Handlers ---
@@ -427,8 +589,8 @@ function App() {
     // Existing attachments preview
     const existingPreviews = (task.attachments || []).map(a => ({
       id: a.id,
-      url: `/static/${a.file_path}`,
-      name: a.file_path.split('/').pop(),
+      url: a.file_path, // Already a Blob URL or local path
+      name: a.file_name || a.file_path.split('/').pop(),
       isExisting: true
     }));
     setEditPreviewUrls(existingPreviews);
@@ -525,18 +687,20 @@ function App() {
   };
 
   /* Helper to Render Attachments (Image, Video, Audio) */
-  const renderAttachment = (attachment, styleOverride = {}) => {
-    if (!attachment) return null;
-    const ext = attachment.split('.').pop().toLowerCase();
-    const src = `/static/${attachment}`;
+  const renderAttachment = (src, styleOverride = {}) => {
+    if (!src) return null;
+    const isBlob = src.startsWith('blob:');
+    const ext = isBlob ? '' : src.split('.').pop().toLowerCase();
 
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+    // Check type if possible, otherwise fallback to extension
+    if (src.includes('image') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) || isBlob) {
+      // Note: for Blobs we trust the caller or just try to render as image if it's in the image slot
       return <img src={src} alt="Attachment" style={{ width: '100%', borderRadius: '0.5rem', marginBottom: '0.5rem', objectFit: 'cover', ...styleOverride }} onClick={(e) => { window.open(src, '_blank'); e.stopPropagation(); }} />;
     }
-    if (['mp4', 'webm', 'ogg', 'mov'].includes(ext)) {
+    if (src.includes('video') || ['mp4', 'webm', 'ogg', 'mov'].includes(ext)) {
       return <video controls src={src} style={{ width: '100%', borderRadius: '0.5rem', marginBottom: '0.5rem' }} onClick={(e) => e.stopPropagation()} />;
     }
-    if (['mp3', 'wav', 'mpeg', 'm4a'].includes(ext)) {
+    if (src.includes('audio') || ['mp3', 'wav', 'mpeg', 'm4a'].includes(ext)) {
       return <audio controls src={src} style={{ width: '100%', marginTop: '0.5rem', marginBottom: '0.5rem' }} onClick={(e) => e.stopPropagation()} />;
     }
     return <a href={src} target="_blank" rel="noreferrer" style={{ color: '#818cf8', display: 'block', marginBottom: '0.5rem' }} onClick={(e) => e.stopPropagation()}>View Attachment</a>;
@@ -549,7 +713,7 @@ function App() {
         <div className="install-banner-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 4000, display: 'flex', justifyContent: 'center', alignItems: 'center', backdropFilter: 'blur(5px)' }}>
           <div style={{ background: '#1e1b4b', color: 'white', padding: '3rem', borderRadius: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.5)', maxWidth: '450px', width: '90%', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1.5rem', border: '1px solid var(--glass-border)', animation: 'fadeInDown 0.5s ease' }}>
             {showInstallClose && (
-              <button onClick={() => setShowInstallBanner(false)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button onClick={() => { setShowInstallBanner(false); localStorage.setItem('swify_install_banner_shown', 'true'); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {Icons.Close}
               </button>
             )}
@@ -600,10 +764,25 @@ function App() {
           </button>
         </div>
 
-        <div style={{ marginTop: 'auto', padding: '1rem', borderTop: '1px solid var(--glass-border)' }}>
-          <button className="icon-btn" style={{ width: '100%', justifyContent: 'center', gap: '0.5rem' }} onClick={() => notificationSound.current.play().catch(e => console.log(e))}>
-            {Icons.Audio} Test Sound
+        <div style={{ marginTop: 'auto', padding: '1rem', borderTop: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {notifPermission !== 'granted' && (
+            <button className="add-btn" style={{ width: '100%', background: '#fbbf24', color: '#000', fontSize: '0.85rem' }} onClick={requestNotificationPermission}>
+              🔔 Enable Notifications
+            </button>
+          )}
+
+          <button className="add-btn" style={{ width: '100%', background: '#3b82f6', color: '#fff', fontSize: '0.85rem' }}
+            onClick={() => {
+              const audio = new Audio('/sounds/notification.wav');
+              audio.volume = 1.0;
+              audio.play().catch(e => console.warn("Test sound blocked", e));
+              sendNotification({ title: 'Test Alert', id: 'test-manual' }, 'Sound and Notification Test.');
+            }}>
+            🔊 Test Alert
           </button>
+
+
+
         </div>
       </aside>
 
@@ -669,6 +848,13 @@ function App() {
                   <option value="Medium">Medium</option>
                   <option value="High">High</option>
                   <option value="Low">Low</option>
+                </select>
+                <select name="recurrence" value={formData.recurrence || 'none'} onChange={handleInputChange}
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', color: 'var(--text-secondary)', padding: '0.5rem', borderRadius: '0.5rem' }}>
+                  <option value="none">No Repeat</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
                 </select>
                 <input type="number" name="focus_duration" placeholder="Focus (min)" value={formData.focus_duration} min="1" max="180" onChange={handleInputChange}
                   style={{ width: '80px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', color: 'var(--text-secondary)', padding: '0.5rem', borderRadius: '0.5rem' }} />
@@ -768,7 +954,26 @@ function App() {
                     <div className="task-content" onClick={() => setViewingTask(task)} style={{ cursor: 'pointer', flex: 1 }}>
                       <div className="checkbox-wrapper">
                         <input type="checkbox" className="task-checkbox" checked={task.completed}
-                          onClick={(e) => { e.stopPropagation(); API.completeTask(task.id).then(fetchTasks); }} readOnly />
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (task.recurrence && task.recurrence !== 'none' && !task.completed) {
+                              // Handle Recurrence: Don't complete, just move date
+                              const nextDate = new Date(task.due_date);
+                              if (task.recurrence === 'daily') nextDate.setDate(nextDate.getDate() + 1);
+                              if (task.recurrence === 'weekly') nextDate.setDate(nextDate.getDate() + 7);
+                              if (task.recurrence === 'monthly') nextDate.setMonth(nextDate.getMonth() + 1);
+
+                              // Update task with new date and ensure active
+                              const updatedTask = new FormData();
+                              updatedTask.append('due_date', nextDate.toISOString());
+                              API.updateTask(task.id, updatedTask).then(() => {
+                                alert(`🔄 Task Recurring!\n\nMoved to: ${nextDate.toLocaleDateString()}`);
+                                fetchTasks();
+                              });
+                            } else {
+                              API.completeTask(task.id).then(fetchTasks);
+                            }
+                          }} readOnly />
                       </div>
                       <div className="task-meta" style={{ width: '100%' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -806,6 +1011,12 @@ function App() {
                             <span className="badge" title="Audio Attachment"
                               style={{ fontSize: '0.7rem', background: 'rgba(255, 255, 255, 0.1)', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                               {Icons.Audio} Audio
+                            </span>
+                          )}
+                          {task.recurrence && task.recurrence !== 'none' && (
+                            <span className="badge" title={`Repeats ${task.recurrence}`}
+                              style={{ fontSize: '0.7rem', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              🔄 {task.recurrence}
                             </span>
                           )}
                         </div>
@@ -1144,6 +1355,19 @@ function App() {
               STOP ALARM
             </button>
           </div>
+        </div>
+      )}
+      {/* In-App Toast */}
+      {toast && (
+        <div className="in-app-toast" style={{ position: 'fixed', bottom: '2rem', right: '2rem', background: 'rgba(30, 27, 75, 0.95)', border: '1px solid #6366f1', padding: '1.25rem', borderRadius: '1rem', color: 'white', maxWidth: '350px', zIndex: 6000, backdropFilter: 'blur(12px)', boxShadow: '0 10px 30px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ background: '#6366f1', width: '45px', height: '45px', borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ fontSize: '1.5rem' }}>🔔</span>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 'bold', fontSize: '1rem', marginBottom: '0.2rem' }}>{toast.title}</div>
+            <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>{toast.message}</div>
+          </div>
+          <button onClick={() => setToast(null)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '1.5rem', padding: '0.5rem' }}>&times;</button>
         </div>
       )}
     </div>
