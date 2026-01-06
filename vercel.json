@@ -23,12 +23,12 @@
             "destination": "/api/index.py"
         },
         {
-            "handle": "filesystem"
+            "source": "/(assets|icons|sounds)/(.*)",
+            "destination": "/frontend/$1/$2"
         },
         {
-            "source": "/(.*)",
-            "destination": "/frontend/$1",
-            "continue": true
+            "source": "/(logo.png|manifest.json|sw.js|favicon.ico|vite.svg)",
+            "destination": "/frontend/$1"
         },
         {
             "source": "/(.*)",
