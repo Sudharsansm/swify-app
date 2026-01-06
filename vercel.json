@@ -13,30 +13,22 @@
             }
         }
     ],
-    "routes": [
+    "rewrites": [
         {
-            "src": "/api/(.*)",
-            "dest": "/api/index.py"
+            "source": "/api/(.*)",
+            "destination": "/api/index.py"
         },
         {
-            "src": "/static/uploads/(.*)",
-            "dest": "/api/index.py"
+            "source": "/static/uploads/(.*)",
+            "destination": "/api/index.py"
         },
         {
-            "src": "/(assets|icons|sounds)/(.*)",
-            "dest": "/frontend/$1/$2"
+            "source": "/",
+            "destination": "/frontend/index.html"
         },
         {
-            "src": "/(logo.png|manifest.json|sw.js|favicon.ico|vite.svg)",
-            "dest": "/frontend/$1"
-        },
-        {
-            "src": "/(.*\\..*)",
-            "dest": "/frontend/$1"
-        },
-        {
-            "src": "/(.*)",
-            "dest": "/frontend/index.html"
+            "source": "/(.*)",
+            "destination": "/frontend/$1"
         }
     ],
     "headers": [
